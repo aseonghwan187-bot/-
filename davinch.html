@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>다빈치 코드 (Davinci Code)</title>
+    <style>
+        :root { --bg: #0f0f0f; --accent: #00d2ff; --black: #1a1a1a; --white: #ffffff; --joker: #f1c40f; }
+        body { background: var(--bg); color: white; font-family: 'Pretendard', sans-serif; text-align: center; margin: 0; overflow: hidden; }
+        .screen { display: none; padding: 20px; height: 100vh; box-sizing: border-box; }
+        .active { display: block; }
+        
+        #big-notice {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+            font-size: 55px; font-weight: 900; z-index: 1000; pointer-events: none; opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 90%; line-height: 1.3; text-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        #big-notice.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+        .how-to { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 15px; margin: 10px auto; max-width: 500px; text-align: left; font-size: 13px; color: #ccc; }
+        .menu-box { background: #222; padding: 15px; margin: 10px auto; max-width: 500px; cursor: pointer; border-radius: 12px; border: 1px solid #444; transition: 0.2s; }
+        .menu-box:hover { border-color: var(--accent); background: #2a2a2a; }
+
+        .hand { display: flex; justify-content: center; gap: 8px; min-height: 100px; flex-wrap: wrap; align-items: center; }
+        .card { 
+            width: 55px; height: 82px; border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+            font-weight: 900; font-size: 26px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        .black { background: var(--black); color: white; border: 2px solid #444; }
+        .white { background: var(--white); color: #1a1a1a; border: 2px solid #ddd; }
+        .joker { border: 3px dashed var(--joker) !important; }
+        .hidden { color: transparent !important; }
+        .revealed { outline: 4px solid #ff4757; transform: translateY(-5px); box-shadow: 0 0 15px rgba(255,71,87,0.5); }
+
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 950px; margin: 0 auto; }
+        .player-box { background: #1e1e1e; padding: 15px; border-radius: 15px; border: 2px solid #333; }
+        .active-turn { border-color: var(--joker); background: #252525; }
+        
+        .deck-btn { width: 110px; height: 130px; border-radius: 12px; cursor: pointer; border: 3px solid #444; font-weight: bold; background: #333; color: #fff; }
+        .deck-btn:disabled { opacity: 0.3; }
+        .deck-count { font-size: 28px; display: block; margin-top: 10px; }
+        .joker-arrow { color: var(--joker); cursor: pointer; font-size: 35px; animation: bounce 0.5s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+    </style>
+</head>
+<body>
+
+<div id="big-notice">READY</div>
+
+<div id="screen-main" class="screen active">
+    <h1>🧩 다빈치 코드 (Davinci Code)</h1>
+    <div class="how-to">
+        <h4>📖 게임 방법</h4>
+        <ul>
+            <li>숫자는 <b>0~11</b> 순서로 자동 정렬됩니다.</li>
+            <li>상대 카드를 클릭해 숫자를 맞추세요. 틀리면 내 패가 공개됩니다.</li>
+            <li>중앙 덱이 비면 뽑기 없이 바로 공격 단계로 넘어갑니다.</li>
+        </ul>
+        <span style="color:#ff4757; font-weight:bold;">※ 실제 보드게임과 달리 추가 공격 없이 턴이 교체됩니다.</span>
+    </div>
+    <div class="menu-box" onclick="showScreen('screen-diff')"><h3>1:1 모드 시작</h3><p>지능적인 AI와 단둘이 승부합니다.</p></div>
+    <div class="menu-box" onclick="startGame(3, 1)"><h3>서바이벌 모드 (4인)</h3><p>AI 3명과 함께하는 2x2 생존 게임</p></div>
+</div>
+
+<div id="screen-diff" class="screen">
+    <h2>난이도 조정</h2>
+    <div class="menu-box" onclick="startGame(1, 0)"><h3>쉬움 (입문)</h3><p>AI가 거의 무작위로 추측합니다. (명중률 15%)</p></div>
+    <div class="menu-box" onclick="startGame(1, 1)"><h3>보통 (숙련)</h3><p>논리적인 범위를 계산하여 추측합니다. (명중률 35%)</p></div>
+    <div class="menu-box" onclick="startGame(1, 2)"><h3>어려움 (전문가)</h3><p>매우 예리하게 당신의 패를 읽습니다. (명중률 60%)</p></div>
+    <div class="menu-box" onclick="startGame(1, 3)" style="border-color:#ff4757"><h3>해탈 (신의 영역)</h3><p>모든 상황을 완벽하게 계산합니다. (명중률 85%)</p></div>
+</div>
+
+<div id="screen-init" class="screen">
+    <h2>시작 카드 4장 선택</h2>
+    <div style="display:flex; justify-content:center; gap:30px;">
+        <button class="deck-btn black" onclick="pick('black')">BLACK<span class="deck-count" id="ic-b">13</span></button>
+        <button class="deck-btn white" onclick="pick('white')">WHITE<span class="deck-count" id="ic-w">13</span></button>
+    </div>
+    <div id="my-init-hand" class="hand" style="margin-top:30px;"></div>
+    <div id="joker-ui" style="display:none; margin-top:20px;"><div id="pos-selector" class="hand"></div></div>
+</div>
+
+<div id="screen-game" class="screen">
+    <div id="board-grid" class="grid-container"></div>
+    <div id="draw-zone" style="display:none; margin-top:50px;">
+        <div style="display:flex; justify-content:center; gap:30px;">
+            <button class="deck-btn black" id="btn-draw-b" onclick="draw('black')">BLACK<span id="gc-b" class="deck-count"></span></button>
+            <button class="deck-btn white" id="btn-draw-w" onclick="draw('white')">WHITE<span id="gc-w" class="deck-count"></span></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let players = [], turn = 0, deck = {black:[], white:[]}, picked = [], bCnt=1, diff=1, state="START", tempJoker=null;
+
+    function notify(text, color = "#00d2ff") {
+        const el = document.getElementById('big-notice');
+        el.innerText = text; el.style.color = color; el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 1500);
+    }
+
+    function showScreen(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+    function startGame(bc, d) {
+        bCnt = bc; diff = d;
+        deck.black = [...Array(12).keys(), '-']; deck.white = [...Array(12).keys(), '-'];
+        picked = []; showScreen('screen-init'); updateCnt();
+    }
+
+    function pick(c) {
+        if(picked.length>=4 || tempJoker) return;
+        let n = deck[c].splice(Math.floor(Math.random()*deck[c].length), 1)[0];
+        if(n==='-') { tempJoker={color:c, num:n, rev:false}; renderPos(); }
+        else { picked.push({color:c, num:n, rev:false}); sort(picked); renderInit(); if(picked.length==4) { notify("GAME START", "#f1c40f"); setTimeout(initBoard, 1600); } }
+        updateCnt();
+    }
+
+    function sort(h) {
+        let nums = h.filter(c=>c.num!=='-').sort((a,b)=>a.num===b.num?(a.color==='black'?-1:1):a.num-b.num);
+        let nIdx = 0; for(let i=0; i<h.length; i++) if(h[i].num!=='-') h[i] = nums[nIdx++];
+    }
+
+    function renderPos() {
+        notify("조커 배치!", "#f1c40f"); document.getElementById('joker-ui').style.display='block';
+        const s = document.getElementById('pos-selector'); s.innerHTML='';
+        for(let i=0; i<=picked.length; i++) {
+            let a = document.createElement('div'); a.className='joker-arrow'; a.innerText='↑';
+            a.onclick=()=>{ picked.splice(i,0,tempJoker); tempJoker=null; document.getElementById('joker-ui').style.display='none'; renderInit(); if(picked.length==4) { notify("GAME START", "#f1c40f"); setTimeout(initBoard, 1600); } };
+            s.appendChild(a);
+            if(i<picked.length) { let c=document.createElement('div'); c.className=`card ${picked[i].color}`; c.innerText=picked[i].num; s.appendChild(c); }
+        }
+    }
+
+    function initBoard() {
+        players = [{id:0, name:"나 (PLAYER)", hand:picked, alive:true, bot:false}];
+        for(let i=1; i<=bCnt; i++) {
+            let h=[]; for(let j=0; j<4; j++) {
+                let c=Math.random()>0.5?'black':'white'; let n=deck[c].splice(Math.floor(Math.random()*deck[c].length),1)[0];
+                h.push({color:c, num:n, rev:false}); sort(h);
+            }
+            players.push({id:i, name:`AI ${i}`, hand:h, alive:true, bot:true, diff:diff});
+        }
+        showScreen('screen-game'); startTurn();
+    }
+
+    function startTurn() {
+        render();
+        let isPlayer = players[turn].id === 0;
+        let deckEmpty = (deck.black.length + deck.white.length === 0);
+
+        if (isPlayer) {
+            notify("MY TURN", "#00d2ff");
+            if (deckEmpty) setTimeout(() => { notify("남은 카드 없음!\n즉시 공격", "#ff4757"); state = "GUESS"; render(); }, 1600);
+            else setTimeout(() => notify("카드를 한 장 뽑으세요", "#fff"), 1600);
+        } else {
+            notify(`${players[turn].name} TURN`, "#ff4757");
+            setTimeout(bot, 1800);
+        }
+    }
+
+    function render() {
+        const grid = document.getElementById('board-grid'); grid.innerHTML='';
+        players.forEach((p, idx) => {
+            let pBox = document.createElement('div'); pBox.className = `player-box ${turn === idx ? 'active-turn' : ''}`; pBox.style.opacity = p.alive ? 1 : 0.3;
+            pBox.innerHTML = `<div style="color:#f1c40f; font-size:12px; margin-bottom:5px;">◀ 작은 숫자 | 큰 숫자 ▶</div><strong>${p.name}</strong>`;
+            let hDiv = document.createElement('div'); hDiv.className='hand';
+            p.hand.forEach(c => {
+                let e = document.createElement('div');
+                let isHidden = (p.id !== 0 && !c.rev);
+                e.className = `card ${c.color} ${isHidden?'hidden':''} ${c.rev?'revealed':''} ${c.num==='-'?'joker':''}`;
+                e.innerText = c.num; if(turn==0 && state=="GUESS" && p.id!=0 && p.alive && !c.rev) e.onclick=()=>guess(p.id, c);
+                hDiv.appendChild(e);
+            });
+            pBox.appendChild(hDiv); grid.appendChild(pBox);
+        });
+        updateCnt();
+        document.getElementById('draw-zone').style.display = (turn==0 && state=="START" && (deck.black.length + deck.white.length > 0)) ? 'block' : 'none';
+        document.getElementById('btn-draw-b').disabled = deck.black.length === 0;
+        document.getElementById('btn-draw-w').disabled = deck.white.length === 0;
+    }
+
+    function draw(c) {
+        let n=deck[c].splice(Math.floor(Math.random()*deck[c].length),1)[0];
+        let nc={color:c, num:n, rev:false, fresh:true};
+        if(n==='-') { tempJoker=nc; state="J_POS"; renderGameJoker(); }
+        else { players[0].hand.push(nc); sort(players[0].hand); state="GUESS"; notify("공격 상대를 선택하세요!", "#ff4757"); render(); }
+    }
+
+    function renderGameJoker() {
+        notify("조커 배치!", "#f1c40f");
+        const grid = document.getElementById('board-grid'); const myBox = grid.children[0]; 
+        const myHand = myBox.querySelector('.hand'); myHand.innerHTML='';
+        for(let i=0; i<=players[0].hand.length; i++) {
+            let a=document.createElement('div'); a.className='joker-arrow'; a.innerText='↑';
+            a.onclick=()=>{ players[0].hand.splice(i,0,tempJoker); tempJoker=null; state="GUESS"; notify("공격 상대를 선택하세요!", "#ff4757"); render(); };
+            myHand.appendChild(a);
+            if(i<players[0].hand.length) { let c=players[0].hand[i]; let e=document.createElement('div'); e.className=`card ${c.color} ${c.rev?'revealed':''}`; e.innerText=c.num; myHand.appendChild(e); }
+        }
+    }
+
+    function guess(tid, c) {
+        let v = prompt(`${players[tid].name}의 숫자는? (0~11 또는 -)`); if(v==null) return;
+        if(v == c.num) { notify(`정답! (${v})`, "#2ed573"); c.rev=true; check(); setTimeout(endTurn, 1600); }
+        else { notify(`실패! (${v} 아님)`, "#ff4757"); revealMyCard(); setTimeout(endTurn, 1600); }
+    }
+
+    function revealMyCard() {
+        let f=players[0].hand.find(x=>x.fresh);
+        if(f) f.rev=true; 
+        else { let unrev = players[0].hand.filter(x=>!x.rev); if(unrev.length) unrev[Math.floor(Math.random()*unrev.length)].rev=true; }
+    }
+
+    function bot() {
+        let p=players[turn];
+        if (deck.black.length + deck.white.length > 0) {
+            let c=deck.black.length>=deck.white.length?'black':'white';
+            let n=deck[c].splice(Math.floor(Math.random()*deck[c].length),1)[0];
+            let nc={color:c, num:n, rev:false, fresh:true};
+            if(n==='-') p.hand.splice(0,0,nc); else { p.hand.push(nc); sort(p.hand); }
+        }
+        render();
+        setTimeout(() => {
+            let targets = players.filter(x=>x.id!=turn && x.alive);
+            let t = targets[Math.floor(Math.random()*targets.length)];
+            let tc_list = t.hand.filter(x=>!x.rev);
+            let tc = tc_list[Math.floor(Math.random()*tc_list.length)];
+            
+            let colorText = tc.color === 'black' ? '검정' : '흰색';
+            let hitChance = [0.15, 0.35, 0.60, 0.85][p.diff];
+            let predictedNum = (Math.random() < hitChance) ? tc.num : Math.floor(Math.random()*12);
+            
+            notify(`${p.name} → ${t.name}\n[${colorText} 카드]를 [${predictedNum}]로 예측!`, "#ff4757");
+
+            setTimeout(() => {
+                if(predictedNum == tc.num) { notify(`AI 정답! (${tc.num})`, "#ff4757"); tc.rev=true; check(); } 
+                else { notify(`AI 오답!`, "#2ed573"); let f=p.hand.find(x=>x.fresh); if(f) f.rev=true; }
+                setTimeout(endTurn, 1800);
+            }, 1800);
+        }, 1600);
+    }
+
+    function endTurn() { 
+        players.forEach(p=>p.hand.forEach(x=>delete x.fresh)); 
+        state="START"; 
+        do { turn=(turn+1)%players.length; } while(!players[turn].alive); 
+        startTurn(); 
+    }
+
+    function check() { players.forEach(p=>{if(p.hand.every(x=>x.rev)) p.alive=false;}); if(players.filter(x=>x.alive).length==1) { notify("승리: " + players.find(x=>x.alive).name, "#f1c40f"); setTimeout(()=>location.reload(), 3000); } }
+    function updateCnt() { 
+        document.getElementById('ic-b').innerText=deck.black.length; document.getElementById('ic-w').innerText=deck.white.length; 
+        if(document.getElementById('gc-b')) { document.getElementById('gc-b').innerText=deck.black.length; document.getElementById('gc-w').innerText=deck.white.length; }
+    }
+    function renderInit() { const c = document.getElementById('my-init-hand'); c.innerHTML=''; picked.forEach(x=>{ let e=document.createElement('div'); e.className=`card ${x.color}`; e.innerText=x.num; c.appendChild(e); }); }
+</script>
+</body>
+</html>
